@@ -49,6 +49,7 @@ class SimplicialComplex:
         self.node_vec = np.zeros(num_nodes, dtype=int)
         self.edge_vec = np.zeros(num_edges, dtype=int)
         self.face_vec = np.zeros(num_faces, dtype=int)
+        self.edge_idx = None
 
         self.is_weighted = weighted_edges
 
@@ -72,6 +73,15 @@ class SimplicialComplex:
             B1[e3_idx, i] = 1
 
         return B0, B1
+
+    def update_edge_idx(self):
+        self.edge_idx = {}
+
+        new_idx = 0
+        for i in range(self.num_edges):
+            if self.edge_vec[i]:
+                self.edge_idx[i] = new_idx
+            new_idx += 1
 
     def add_simplices(self, simp_set):
         """
@@ -118,6 +128,8 @@ class SimplicialComplex:
 
         self.make_graph(self.is_weighted)
         self.compute_proj_matrix()
+        self.update_num_simps()
+        self.update_edge_idx()
 
     def remove_simplices(self, simp_set):
         simp_dict = {0:set(), 1:set(), 2:set()}
@@ -149,6 +161,8 @@ class SimplicialComplex:
         
         self.make_graph(self.is_weighted)
         self.compute_proj_matrix()
+        self.update_num_simps()
+        self.update_edge_idx()
         
     def get_incidence_matrices(self):
         B0 = self.B0_main[self.node_vec.astype(bool),:]
@@ -209,11 +223,14 @@ class SimplicialComplex:
 
         return link_nodes, link_edges
 
+    def update_num_simps(self):
+        self.num_nodes = np.sum(self.node_vec)
+        self.num_edges = np.sum(self.edge_vec)
+        self.num_faces = np.sum(self.face_vec)
+
+
     def euler_characterstic(self):
-        num_nodes = np.sum(self.node_vec)
-        num_edges = np.sum(self.edge_vec)
-        num_faces = np.sum(self.face_vec)
-        return num_nodes - num_edges + num_faces
+        return self.num_nodes - self.num_edges + self.num_faces
 
     def plot(self):
         for i, face in enumerate(self.faces):
@@ -275,13 +292,13 @@ class SimplicialComplex:
         eig_w, eig_v = np.array([tup[0] for tup in ev_list]), np.array([tup[1] for tup in ev_list])
 
         num_holes = np.sum(np.abs(eig_w) < thresh)
-        H = eig_v[:,:num_holes]
+        H = eig_v[:,:num_holes].T
 
         self.H, self.num_holes = H, num_holes
 
     def harm_proj(self, x):
         x_hat = x[self.edge_vec.astype(bool)] # consider only edges in edge set
-        y = (self.H.T @ x_hat).T
+        y = (self.H @ x_hat).T
         return y
 
 def find_hole_edges(SC, plot=False):
